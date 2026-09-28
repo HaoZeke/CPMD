@@ -42,6 +42,9 @@ MODULE egointer_utils
   USE geq0mod,                         ONLY: geq0
   USE hip_utils,                       ONLY: give_qphi
   USE inscan_utils,                    ONLY: inscan
+  USE ionic_optim_utils,               ONLY: ionic_bind,&
+                                             ionic_gpr,&
+                                             ionic_rgsaddle
   USE ions,                            ONLY: ions0,&
                                              ions1
   USE isos,                            ONLY: isos1
@@ -134,16 +137,16 @@ CONTAINS
   ! ==================================================================
   SUBROUTINE INTERFACE(c0,c2,sc0,pme,gde,vpp,eigv)
     ! ==--------------------------------------------------------------==
-    COMPLEX(real_8)                          :: c0(nkpt%ngwk,crge%n), &
+    COMPLEX(real_8), TARGET                  :: c0(nkpt%ngwk,crge%n), &
                                                 c2(nkpt%ngwk,crge%n), &
-                                                sc0(nkpt%ngwk,crge%n), &
-                                                pme(*), gde(*)
-    REAL(real_8)                             :: vpp(*), eigv(*)
+                                                sc0(nkpt%ngwk,crge%n)
+    COMPLEX(real_8), TARGET                  :: pme(:), gde(:)
+    REAL(real_8), TARGET                     :: vpp(:), eigv(:)
 
     CHARACTER(*), PARAMETER                  :: procedureN = 'INTERFACE'
 
     CHARACTER(len=80)                        :: int_filen, line
-    COMPLEX(real_8), ALLOCATABLE             :: psi(:,:)
+    COMPLEX(real_8), ALLOCATABLE, TARGET     :: psi(:,:)
     INTEGER                                  :: i, ierr, il_psi_1d, &
                                                 il_psi_2d, il_rhoe_1d, &
                                                 il_rhoe_2d, irec(100)
@@ -152,7 +155,7 @@ CONTAINS
                                                 ekin2, ekincp, ekinh1, &
                                                 ekinh2, etoto, tcpu, temp1, &
                                                 temp2, time1, time2
-    REAL(real_8), ALLOCATABLE                :: rhoe(:,:)
+    REAL(real_8), ALLOCATABLE, TARGET        :: rhoe(:,:)
 
     CALL rhoe_psi_size(il_rhoe_1d=il_rhoe_1d, il_rhoe_2d=il_rhoe_2d,&
          il_psi_1d=il_psi_1d,il_psi_2d=il_psi_2d)
@@ -219,8 +222,18 @@ CONTAINS
          WRITE(6,'(A)') ' INTERFACE| ENTERING GROMACS-INTERFACE'
     IF ((cnti%iftype.EQ.4).AND.paral%io_parent)&
          WRITE(6,'(A)') ' INTERFACE| ENTERING EON-INTERFACE'
+    IF ((cnti%iftype.EQ.5).AND.paral%io_parent)&
+         WRITE(6,'(A)') ' INTERFACE| ENTERING RGSADDLE-INTERFACE'
+    IF ((cnti%iftype.EQ.6).AND.paral%io_parent)&
+         WRITE(6,'(A)') ' INTERFACE| ENTERING GPR-INTERFACE'
 
     CALL dynit(ekincp,ekin1,ekin2,temp1,temp2,ekinh1,ekinh2)
+    IF (cnti%iftype.EQ.5 .OR. cnti%iftype.EQ.6) THEN
+       CALL ionic_bind(c0,c2,sc0,pme,gde,vpp,eigv,rhoe,psi)
+       IF (cnti%iftype.EQ.5) CALL ionic_rgsaddle()
+       IF (cnti%iftype.EQ.6) CALL ionic_gpr()
+       GOTO 2
+    ENDIF
     ! ==--------------------------------------------------------------==
     ! ==      THE BASIC MOLECULAR DYNAMICS LOOP                       ==
     ! ==--------------------------------------------------------------==
@@ -1865,7 +1878,7 @@ CONTAINS
     INTEGER :: is, ia
     IF (paral%io_parent) THEN
        OPEN(unit=78, file='eon_force', status='REPLACE')
-       WRITE(78, '(ES24.16)') ener_com%etot
+       WRITE(78, '(ES24.16)') ener_com%etot+ener_com%eext
        DO is = 1, ions1%nsp
           DO ia = 1, ions0%na(is)
              WRITE(78, '(3ES24.16)') fion(1,ia,is), fion(2,ia,is), fion(3,ia,is)

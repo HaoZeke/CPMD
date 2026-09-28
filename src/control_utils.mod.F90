@@ -154,7 +154,7 @@ CONTAINS
     ! ==    OPTIMIZE {GEOMETRY,WAVEFUNCTION,COMBINED} [XYZ] [SAMPLE]  ==
     ! ==      ngxyz                                                   ==
     ! ==    FREE ENERGY FUNCTIONAL                                    ==
-    ! ==    INTERFACE {EGO,GMX} [MULLIKEN,LOWDIN,ESP,HIRSHFELD]       ==
+    ! ==    INTERFACE {EGO,GMX,IPHIGENIE,EON,RGSADDLE,GPR}            ==
     ! ==    PATH SAMPLING                                             ==
     ! ==    KOHN-SHAM ENERGIES {OFF} [NOWAVEFUNCTION]                 ==
     ! ==      nkssta                                                  ==
@@ -1240,6 +1240,10 @@ CONTAINS
                    cnti%iftype=3
                 ELSEIF ( keyword_contains(line,'EON') ) THEN
                    cnti%iftype=4
+                ELSEIF ( keyword_contains(line,'RGSADDLE') ) THEN
+                   cnti%iftype=5
+                ELSEIF ( keyword_contains(line,'GPR') ) THEN
+                   cnti%iftype=6
                 ELSE
                    error_message        = "UNKNOWN MM INTERFACE TYPE"
                    something_went_wrong = .true.

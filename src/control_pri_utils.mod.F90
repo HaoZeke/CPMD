@@ -142,7 +142,11 @@ CONTAINS
 
     ELSEIF (cntl%tinter) THEN
        IF (cnti%iftype.EQ.4) THEN
-          WRITE(6,'(/,A,/)') ' INTERFACE TO AN EXTERNAL IONIC OPTIMIZER'
+          WRITE(6,'(/,A,/)') ' INTERFACE TO EON'
+       ELSEIF (cnti%iftype.EQ.5) THEN
+          WRITE(6,'(/,A,/)') ' INTERFACE TO RGSADDLE'
+       ELSEIF (cnti%iftype.EQ.6) THEN
+          WRITE(6,'(/,A,/)') ' INTERFACE TO GPR_OPTIM'
        ELSE
           WRITE(6,'(/,A,/)') ' INTERFACE TO CLASSICAL MD PROGRAM'
        ENDIF

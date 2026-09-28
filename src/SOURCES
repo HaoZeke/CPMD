@@ -245,7 +245,7 @@ SRC_MODULES = kinds.mod.F90 machine.mod.F90 timer.mod.F90 error_handling.mod.F90
            ptheory_utils.mod.F90 clinbcg_utils.mod.F90 elstpo_utils.mod.F90 mulliken_utils.mod.F90 espchg_utils.mod.F90 \
            secder_driver.mod.F90 atimes_utils.mod.F90 projv_utils.mod.F90 vdw_wf_alloc_utils.mod.F90 \
            kin_energy_utils.mod.F90 vpsi_lse_utils.mod.F90 disortho_utils.mod.F90 norhoe_utils.mod.F90 ssic_utils.mod.F90 \
-           testex_utils.mod.F90 atomc_utils.mod.F90 eextern_utils.mod.F90 egointer_utils.mod.F90 fileopen_utils.mod.F90 \
+           testex_utils.mod.F90 atomc_utils.mod.F90 eextern_utils.mod.F90 ionic_optim_utils.mod.F90 egointer_utils.mod.F90 fileopen_utils.mod.F90 \
            forcedr_utils.mod.F90 initrun_utils.mod.F90 ldos_utils.mod.F90 fnlalloc_utils.mod.F90 anneal_utils.mod.F90 \
            rnlsm_utils.mod.F90 wfnio_utils.mod.F90 density_functionals_utils.mod.F90 linalg_utils.mod.F90 forcedr_driver.mod.F90 \
            forces_driver.mod.F90 rinitwf_driver.mod.F90 initrun_driver.mod.F90 pcgrad_driver.mod.F90 k_forces_driver.mod.F90 \
