@@ -1142,8 +1142,8 @@ CONTAINS
        ENDIF
        IF (lspin2%tros) THEN
           WRITE(6,'(A)')&
-               ' MODIFIED GOEDECKER: FRIEDRICHS ET AL'
-          WRITE(6,'(A,/,A)') ' CHEM PHYS (2007) (in press)',&
+               ' MODIFIED GOEDECKER: FRIEDRICHS ET AL.'
+          WRITE(6,'(A,/,A)') ' CHEM. PHYS. 347, 17 (2007)',&
                ' PARAMETERS'
           WRITE(6,'(A, F5.2,A,F5.2)')' A_AC:',lspin3%mgab(1), ' B_AC:',lspin3%mgab(2)
           WRITE(6,'(A, F5.2,A,F5.2)')' A_BC:',lspin3%mgab(3), ' B_BC:',lspin3%mgab(4)
@@ -1154,7 +1154,7 @@ CONTAINS
        ENDIF
        IF (lspin2%tlsets) THEN
           WRITE(6,'(A)') ' SLATER TRANSITION-STATE DENSITY WITH ROKS'
-          WRITE(6,'(A)') ' BILLETER AND EGLI PRB SUBMITTED (2006)'
+          WRITE(6,'(A)') ' BILLETER AND EGLI J. CHEM. PHYS. 125, 224103 (2006)'
        ENDIF
        WRITE(6,'(A)') ' OCCUPATION'
        WRITE(6,'(13F5.1)') (crge%f(i,1),i=1,crge%n)

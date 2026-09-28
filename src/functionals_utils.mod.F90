@@ -633,7 +633,7 @@ CONTAINS
   SUBROUTINE pade(rs,ec,vc)
     ! ==--------------------------------------------------------------==
     ! ==  PADE APPROXIMATION                                          ==
-    ! ==  S. GOEDECKER, M. TETER, J. HUTTER, PRB in press             ==
+    ! ==  S. GOEDECKER, M. TETER, J. HUTTER, PRB 54 1703 (1996)       ==
     ! ==--------------------------------------------------------------==
     REAL(real_8)                             :: rs, ec, vc
 
@@ -652,7 +652,8 @@ CONTAINS
     bot=rs*(b1+rs*(b2+rs*(b3+rs*b4)))
     dbot=b1+rs*(2._real_8*b2+rs*(3._real_8*b3+rs*4._real_8*b4))
     ec=-top/bot
-    vc=ec+rs*o3*(dtop/bot-top*dbot/(bot*bot))
+!!cmb    vc=ec+rs*o3*(dtop/bot-top*dbot/(bot*bot))
+    vc=ec+rs*o3*(dtop+ec*dbot)/bot
     ! ==--------------------------------------------------------------==
     RETURN
   END SUBROUTINE pade
