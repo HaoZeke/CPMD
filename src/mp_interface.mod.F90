@@ -247,7 +247,10 @@ MODULE mp_interface
 
 
   ! alias for MPI_COMM_WORLD to be used outside this module
+  ! A host that already called MPI_Init sets mp_comm_world to the
+  ! calculator communicator and raises mp_comm_set. mp_start keeps it.
   INTEGER, SAVE, PUBLIC :: mp_comm_world
+  LOGICAL, SAVE, PUBLIC :: mp_comm_set = .FALSE.
   INTEGER, SAVE, PUBLIC :: mp_max_processor_name = HUGE(0)
   INTEGER, SAVE, PUBLIC :: mp_comm_null
 
@@ -301,8 +304,11 @@ CONTAINS
        !$ ENDIF
        IF (ierr.NE.0) CALL stopgm('MPI_INIT','IERR.NE.0',& 
             __LINE__,__FILE__)
-       ! an external interface has to set mp_comm_world
+       IF (.NOT. mp_comm_set) mp_comm_world = MPI_COMM_WORLD
+       mp_comm_set = .TRUE.
+    ELSE IF (.NOT. mp_comm_set) THEN
        mp_comm_world = MPI_COMM_WORLD
+       mp_comm_set = .TRUE.
     ENDIF
     CALL mpi_errhandler_set ( mp_comm_world, MPI_ERRORS_RETURN, ierr )
     IF (ierr/=0) CALL stopgm('MPI_INIT','mpi_errhandler_set',&
