@@ -217,6 +217,8 @@ CONTAINS
          WRITE(6,'(A)') ' INTERFACE| ENTERING EGO-INTERFACE'
     IF ((cnti%iftype.EQ.2).AND.paral%io_parent)&
          WRITE(6,'(A)') ' INTERFACE| ENTERING GROMACS-INTERFACE'
+    IF ((cnti%iftype.EQ.4).AND.paral%io_parent)&
+         WRITE(6,'(A)') ' INTERFACE| ENTERING EON-INTERFACE'
 
     CALL dynit(ekincp,ekin1,ekin2,temp1,temp2,ekinh1,ekinh2)
     ! ==--------------------------------------------------------------==
@@ -233,13 +235,17 @@ CONTAINS
     ! 
     ! .......wait for the interface file
     ! 
-    CALL interface_wait(int_filen)
+    IF (cnti%iftype.EQ.4) THEN
+       CALL eon_read_geom(tau0, eofrun)
+    ELSE
+       CALL interface_wait(int_filen)
+    ENDIF
     IF (.NOT.eofrun) CALL testex(eofrun)
     IF (eofrun) GOTO 2
     ! 
     ! .......read and process interface file
     ! 
-    CALL interface_read(tau0)
+    IF (cnti%iftype.NE.4) CALL interface_read(tau0)
     CALL phfac(tau0)
     IF (corel%tinlc) CALL copot(rhoe,psi,.FALSE.)
     CALL mp_sync(parai%allgrp)
@@ -326,7 +332,11 @@ CONTAINS
     ! 
     ! ..process data and write the interface file
     ! 
-    CALL interface_write(int_filen,tau0,fion,c0,taup,rhoe,psi)
+    IF (cnti%iftype.EQ.4) THEN
+       CALL eon_write_force(fion)
+    ELSE
+       CALL interface_write(int_filen,tau0,fion,c0,taup,rhoe,psi)
+    ENDIF
     ! 
     ! ..write the restart file
     ! 
@@ -1798,5 +1808,71 @@ CONTAINS
     RETURN
   END SUBROUTINE gmx_el_force
 
+
+  ! ==================================================================
+  ! Geometry from the ionic optimizer. Angstrom in, bohr in tau0.
+  ! A count of 0, or a missing file, ends the loop. The wavefunction
+  ! in c0 is the one from the previous step. Coordinates on a RESTART
+  ! tape are not read: INTERFACE cleared restart1%restart above.
+  SUBROUTINE eon_read_geom(tau0, eofrun)
+    USE cnst, ONLY: fbohr
+    USE ions, ONLY: ions0, ions1
+    USE mp_interface, ONLY: mp_bcast
+    USE parac, ONLY: parai, paral
+    USE system, ONLY: maxsys
+    REAL(real_8), INTENT(INOUT) :: tau0(:,:,:)
+    LOGICAL, INTENT(INOUT) :: eofrun
+    INTEGER :: n, nat, is, ia, ios
+    REAL(real_8) :: x, y, z
+    nat = 0
+    DO is = 1, ions1%nsp
+       nat = nat + ions0%na(is)
+    END DO
+    n = -1
+    IF (paral%io_parent) THEN
+       OPEN(unit=77, file='eon_geom', status='OLD', iostat=ios)
+       IF (ios /= 0) THEN
+          n = 0
+       ELSE
+          READ(77, *, iostat=ios) n
+          IF (ios /= 0 .OR. n /= nat) THEN
+             n = 0
+          ELSE
+             DO is = 1, ions1%nsp
+                DO ia = 1, ions0%na(is)
+                   READ(77, *) x, y, z
+                   tau0(1, ia, is) = x * fbohr
+                   tau0(2, ia, is) = y * fbohr
+                   tau0(3, ia, is) = z * fbohr
+                END DO
+             END DO
+          END IF
+          CLOSE(77)
+       END IF
+    END IF
+    CALL mp_bcast(n, parai%io_source, parai%cp_grp)
+    CALL mp_bcast(tau0, 3*maxsys%nax*maxsys%nsx, parai%io_source, parai%cp_grp)
+    IF (n == 0) eofrun = .TRUE.
+  END SUBROUTINE eon_read_geom
+  ! ==================================================================
+  ! Forces in hartree/bohr, the CPMD fion array, one line per ion in
+  ! the order of the &ATOMS blocks.
+  SUBROUTINE eon_write_force(fion)
+    USE ener, ONLY: ener_com
+    USE ions, ONLY: ions0, ions1
+    USE parac, ONLY: paral
+    REAL(real_8), INTENT(IN) :: fion(:,:,:)
+    INTEGER :: is, ia
+    IF (paral%io_parent) THEN
+       OPEN(unit=78, file='eon_force', status='REPLACE')
+       WRITE(78, '(ES24.16)') ener_com%etot
+       DO is = 1, ions1%nsp
+          DO ia = 1, ions0%na(is)
+             WRITE(78, '(3ES24.16)') fion(1,ia,is), fion(2,ia,is), fion(3,ia,is)
+          END DO
+       END DO
+       CLOSE(78)
+    END IF
+  END SUBROUTINE eon_write_force
 
 END MODULE egointer_utils

@@ -1238,6 +1238,8 @@ CONTAINS
                    cnti%iftype=2
                 ELSEIF ( keyword_contains(line,'IPHIGENIE') ) THEN
                    cnti%iftype=3
+                ELSEIF ( keyword_contains(line,'EON') ) THEN
+                   cnti%iftype=4
                 ELSE
                    error_message        = "UNKNOWN MM INTERFACE TYPE"
                    something_went_wrong = .true.

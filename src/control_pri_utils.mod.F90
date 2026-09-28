@@ -141,7 +141,11 @@ CONTAINS
             WRITE(6,'(A,/)') ' WITH LINEAR RESPONSE CALCULATION '
 
     ELSEIF (cntl%tinter) THEN
-       WRITE(6,'(/,A,/)') ' INTERFACE TO CLASSICAL MD PROGRAM'
+       IF (cnti%iftype.EQ.4) THEN
+          WRITE(6,'(/,A,/)') ' INTERFACE TO AN EXTERNAL IONIC OPTIMIZER'
+       ELSE
+          WRITE(6,'(/,A,/)') ' INTERFACE TO CLASSICAL MD PROGRAM'
+       ENDIF
     ELSEIF (cntl%tsampl) THEN
        WRITE(6,'(/,A,/)') ' REACTION PATH SAMPLING PROGRAM'
     ENDIF
