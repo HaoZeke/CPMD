@@ -14,6 +14,7 @@ MODULE initrun_driver
                                              velp
   USE copot_utils,                     ONLY: copot
   USE elct,                            ONLY: crge
+  USE embed_ctrl,                      ONLY: embed_write_files
   USE error_handling,                  ONLY: stopgm
   USE fint,                            ONLY: fint1
   USE geofile_utils,                   ONLY: geofile
@@ -311,7 +312,9 @@ CONTAINS
                   __LINE__,__FILE__)
           ENDIF
 
-          CALL geofile(tau0,velp,'WRITE')
+          ! embed_write_files is true for cpmd.x. A host that keeps the
+          ! geometry itself sets it false and this write is skipped.
+          IF (embed_write_files) CALL geofile(tau0,velp,'WRITE')
        ENDIF
     ENDIF
     ! Initialization of density and potential

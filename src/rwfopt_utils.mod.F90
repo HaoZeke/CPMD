@@ -21,6 +21,7 @@ MODULE rwfopt_utils
   USE dynit_utils,                     ONLY: dynit
   USE efld
   USE ehrenfest_utils,                 ONLY: ehrenfest
+  USE embed_ctrl,                      ONLY: embed_write_files
   USE elct
   USE enbandpri_utils,                 ONLY: enbandpri
   USE ener
@@ -111,15 +112,17 @@ MODULE rwfopt_utils
   ! .FALSE., and embed_write_files defaults to .TRUE. Those defaults are
   ! the cpmd.x behaviour, because cpmd.x never calls the setters.
   !   embed_need_forces: compute the ionic forces and leave fion allocated
-  !     after rwfopt returns, for the caller to read. The next rwfopt frees
-  !     it; the caller need not.
+  !     after a converged rwfopt. An unconverged call leaves fion zero.
+  !     The next rwfopt frees a surviving fion.
   !   embed_warm_orbitals: start the next rwfopt from orbitals saved after
   !     convwf was set, instead of the generated guess. The first SCF
   !     iteration builds the density from those orbitals.
-  !   embed_write_files: write RESTART and GEOMETRY. A caller that keeps
-  !     the orbitals in memory sets it to .FALSE.
-  ! embed_reset_warm_orbitals clears embed_warm_orbitals and frees the saved
-  ! orbitals; call it after a caught stopgm or when the system changes.
+  !     embed_set_warm_orbitals(.FALSE.) frees the saved orbitals, as does
+  !     embed_reset_warm_orbitals. Call that after a caught stopgm or when
+  !     the system changes.
+  !   embed_write_files: lives in embed_ctrl and defaults to .TRUE.
+  !     .FALSE. skips the zhwwf RESTART writes and the geofile GEOMETRY
+  !     writes in rwfopt and in initrun. wrgeof still prints coordinates.
   PUBLIC :: embed_set_warm_orbitals
   PUBLIC :: embed_set_need_forces
   PUBLIC :: embed_reset_warm_orbitals
@@ -127,7 +130,6 @@ MODULE rwfopt_utils
   LOGICAL, SAVE :: embed_warm_orbitals = .FALSE.
   LOGICAL, SAVE :: embed_need_forces = .FALSE.
   LOGICAL, SAVE :: embed_have_orbitals = .FALSE.
-  LOGICAL, SAVE :: embed_write_files = .TRUE.
   COMPLEX(real_8), ALLOCATABLE, SAVE :: embed_c0_store(:,:,:)
   INTEGER, SAVE :: embed_store_s1 = 0, embed_store_s2 = 0, embed_store_s3 = 0
   !public :: lseprof
@@ -138,7 +140,11 @@ CONTAINS
   SUBROUTINE embed_set_warm_orbitals(flag)
     ! ==--------------------------------------------------------------==
     LOGICAL, INTENT(IN) :: flag
-    embed_warm_orbitals = flag
+    IF (flag) THEN
+       embed_warm_orbitals=.TRUE.
+    ELSE
+       CALL embed_reset_warm_orbitals
+    ENDIF
   END SUBROUTINE embed_set_warm_orbitals
 
   ! ==================================================================
