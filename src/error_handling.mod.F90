@@ -10,16 +10,12 @@ MODULE error_handling
   PUBLIC :: stopgm
 
   ! A program that embeds CPMD may install a C function here. stopgm calls
-  ! it with the stop code (999) after writing LocalError-*.log. A nonzero
-  ! return makes stopgm return to its caller instead of stopping every rank.
-  ! The caller then continues past a failed check: the wavefunction, fion and
-  ! module state of the current call are undefined, and the host must discard
-  ! its results and set CPMD up again before the next call. stopgm runs only on
-  ! the ranks that hit the error. A rank that returns while others wait in an
-  ! MPI call leaves them waiting, so a host with more than one rank must stop
-  ! or abort the others itself. The function must return; unwinding across
-  ! the Fortran frames that called stopgm is undefined. Null by default, so
-  ! cpmd.x stops as it always has.
+  ! it with the stop code (999) before it prints the call stack. A nonzero
+  ! return makes stopgm close the log and return to its caller. The
+  ! wavefunction, forces and module state of that call are undefined, so the
+  ! host discards them and sets CPMD up again. The function must return.
+  ! Unwinding across the Fortran frames that called stopgm is undefined.
+  ! Null by default, so cpmd.x stops as it always has.
   TYPE(c_funptr), BIND(C, NAME='cpmd_stopgm_hook'), PUBLIC :: stopgm_hook = c_null_funptr
 
   ABSTRACT INTERFACE
@@ -68,14 +64,16 @@ CONTAINS
     WRITE(file_unit,'(A,A)')&
          '               in procedure: ',TRIM(ADJUSTL(a))
     WRITE(file_unit,'(A,A)') ' error message: ',TRIM(ADJUSTL(b))
-    CALL tistopgm(file_unit)
-    CLOSE(file_unit)
-
     nc=999
     IF (c_associated(stopgm_hook)) THEN
       CALL c_f_procpointer(stopgm_hook, hook)
-      IF (hook(INT(nc, c_int)) /= 0) RETURN
+      IF (hook(INT(nc, c_int)) /= 0) THEN
+        CLOSE(file_unit)
+        RETURN
+      END IF
     END IF
+    CALL tistopgm(file_unit)
+    CLOSE(file_unit)
     CALL my_stopall(nc)
     ! ==--------------------------------------------------------------==
   END SUBROUTINE stopgm
