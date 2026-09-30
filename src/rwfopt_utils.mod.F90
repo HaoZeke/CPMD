@@ -109,9 +109,13 @@ MODULE rwfopt_utils
   ! State for a program that calls rwfopt repeatedly in one process. Both
   ! flags default to .FALSE., which is the cpmd.x behaviour.
   !   embed_need_forces: compute the ionic forces and leave fion allocated
-  !     after rwfopt returns, for the caller to read and free.
+  !     after rwfopt returns, for the caller to read. The next rwfopt frees
+  !     it; the caller need not.
   !   embed_warm_orbitals: start the next rwfopt from the orbitals the
-  !     previous one converged to, instead of the generated guess.
+  !     previous one converged to, instead of the generated guess. The first
+  !     SCF iteration builds the density from those orbitals.
+  ! embed_reset_warm_orbitals clears embed_warm_orbitals and frees the saved
+  ! orbitals; call it after a caught stopgm or when the system changes.
   PUBLIC :: embed_set_warm_orbitals
   PUBLIC :: embed_set_need_forces
   PUBLIC :: embed_reset_warm_orbitals
@@ -153,8 +157,12 @@ CONTAINS
     END IF
     IF (.NOT. ALLOCATED(embed_c0_store)) THEN
       ALLOCATE(embed_c0_store(s1, s2, s3), STAT=ierr)
-      IF (ierr /= 0) CALL stopgm('embed_save_orbitals', 'allocation problem', &
-           __LINE__, __FILE__)
+      IF (ierr /= 0) THEN
+        embed_have_orbitals = .FALSE.
+        CALL stopgm('embed_save_orbitals', 'allocation problem', &
+             __LINE__, __FILE__)
+        RETURN
+      END IF
       embed_store_s1 = s1; embed_store_s2 = s2; embed_store_s3 = s3
     END IF
     embed_c0_store = c0
@@ -165,7 +173,13 @@ CONTAINS
     COMPLEX(real_8), INTENT(INOUT) :: c0(:,:,:)
     IF (.NOT. embed_have_orbitals .OR. .NOT. ALLOCATED(embed_c0_store)) RETURN
     IF (SIZE(c0, 1) /= embed_store_s1 .OR. SIZE(c0, 2) /= embed_store_s2 .OR. &
-        SIZE(c0, 3) /= embed_store_s3) RETURN
+        SIZE(c0, 3) /= embed_store_s3) THEN
+      ! The saved orbitals belong to another cutoff, cell or state count.
+      CALL stopgm('embed_restore_orbitals', &
+           'saved orbitals do not match c0; call embed_reset_warm_orbitals', &
+           __LINE__, __FILE__)
+      RETURN
+    END IF
     c0 = embed_c0_store
   END SUBROUTINE embed_restore_orbitals
 
@@ -980,8 +994,10 @@ CONTAINS
        IF (.NOT.cntl%bsymm.OR.ropt_mod%convwf) CALL finalp(tau0,fion,tau0,eigv)
        CALL geofile(tau0,fion,'WRITE')
     ENDIF
-    ! Every rank keeps its own slice of c0 for the next warm start.
-    IF (embed_warm_orbitals) CALL embed_save_orbitals(c0)
+    ! Every rank keeps its own slice of c0 for the next warm start. Only
+    ! converged orbitals are kept, so a call that stopped or did not converge
+    ! leaves the previous start in place.
+    IF (embed_warm_orbitals .AND. ropt_mod%convwf) CALL embed_save_orbitals(c0)
     ! CB: TAUP,FION handled by BS_WFO
     IF (.NOT.cntl%bsymm) THEN
        DEALLOCATE(taup,STAT=ierr)
