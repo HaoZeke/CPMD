@@ -1,11 +1,27 @@
 MODULE error_handling
   USE parac,                           ONLY: parai
+  USE, INTRINSIC :: iso_c_binding,     ONLY: c_funptr, c_null_funptr, &
+                                             c_associated, c_f_procpointer, c_int
 
   !$ USE omp_lib, ONLY: omp_get_thread_num, omp_get_level
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: stopgm
+
+  ! A program that embeds CPMD may install a C function here. stopgm calls
+  ! it with the stop code; a nonzero return makes stopgm return to its
+  ! caller instead of stopping every rank. Null by default, so cpmd.x stops
+  ! as it always has.
+  TYPE(c_funptr), BIND(C, NAME='cpmd_stopgm_hook'), PUBLIC :: stopgm_hook = c_null_funptr
+
+  ABSTRACT INTERFACE
+    FUNCTION stopgm_hook_iface(code) BIND(C) RESULT(handled)
+      IMPORT :: c_int
+      INTEGER(c_int), VALUE :: code
+      INTEGER(c_int) :: handled
+    END FUNCTION stopgm_hook_iface
+  END INTERFACE
 CONTAINS
   ! ==================================================================
   SUBROUTINE stopgm(a,b,line,file)
@@ -19,6 +35,7 @@ CONTAINS
 
     CHARACTER(100)                           :: buff, file_name
     EXTERNAL                                 :: tistopgm
+    PROCEDURE(stopgm_hook_iface), POINTER    :: hook
     INTEGER                                  :: i_level, i_thread, nc
 
 ! ==--------------------------------------------------------------==
@@ -48,6 +65,10 @@ CONTAINS
     CLOSE(file_unit)
 
     nc=999
+    IF (c_associated(stopgm_hook)) THEN
+      CALL c_f_procpointer(stopgm_hook, hook)
+      IF (hook(INT(nc, c_int)) /= 0) RETURN
+    END IF
     CALL my_stopall(nc)
     ! ==--------------------------------------------------------------==
   END SUBROUTINE stopgm
