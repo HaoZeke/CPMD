@@ -12,10 +12,13 @@ MODULE error_handling
   ! A program that embeds CPMD may install a C function here. stopgm calls
   ! it with the stop code (999) after writing LocalError-*.log. A nonzero
   ! return makes stopgm return to its caller instead of stopping every rank.
-  ! The caller then continues past a failed check, so the host must treat
-  ! every result of the current CPMD call as invalid and set up CPMD again
-  ! before the next one. The function must return; unwinding across the
-  ! Fortran frames that called stopgm is undefined. Null by default, so
+  ! The caller then continues past a failed check: the wavefunction, fion and
+  ! module state of the current call are undefined, and the host must discard
+  ! its results and set CPMD up again before the next call. stopgm runs only on
+  ! the ranks that hit the error. A rank that returns while others wait in an
+  ! MPI call leaves them waiting, so a host with more than one rank must stop
+  ! or abort the others itself. The function must return; unwinding across
+  ! the Fortran frames that called stopgm is undefined. Null by default, so
   ! cpmd.x stops as it always has.
   TYPE(c_funptr), BIND(C, NAME='cpmd_stopgm_hook'), PUBLIC :: stopgm_hook = c_null_funptr
 
