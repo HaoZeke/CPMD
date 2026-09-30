@@ -116,12 +116,17 @@ MODULE rwfopt_utils
   !     SCF iteration builds the density from those orbitals.
   ! embed_reset_warm_orbitals clears embed_warm_orbitals and frees the saved
   ! orbitals; call it after a caught stopgm or when the system changes.
+  !   embed_write_files: write RESTART and GEOMETRY as cpmd.x does. A caller
+  !     that keeps the orbitals in memory sets it to .FALSE. and rwfopt then
+  !     writes neither. Defaults to .TRUE.
   PUBLIC :: embed_set_warm_orbitals
   PUBLIC :: embed_set_need_forces
   PUBLIC :: embed_reset_warm_orbitals
+  PUBLIC :: embed_set_write_files
   LOGICAL, SAVE :: embed_warm_orbitals = .FALSE.
   LOGICAL, SAVE :: embed_need_forces = .FALSE.
   LOGICAL, SAVE :: embed_have_orbitals = .FALSE.
+  LOGICAL, SAVE :: embed_write_files = .TRUE.
   COMPLEX(real_8), ALLOCATABLE, SAVE :: embed_c0_store(:,:,:)
   INTEGER, SAVE :: embed_store_s1 = 0, embed_store_s2 = 0, embed_store_s3 = 0
   !public :: lseprof
@@ -137,6 +142,11 @@ CONTAINS
     LOGICAL, INTENT(IN) :: flag
     embed_need_forces = flag
   END SUBROUTINE embed_set_need_forces
+
+  SUBROUTINE embed_set_write_files(flag)
+    LOGICAL, INTENT(IN) :: flag
+    embed_write_files = flag
+  END SUBROUTINE embed_set_write_files
 
   SUBROUTINE embed_reset_warm_orbitals()
     embed_warm_orbitals = .FALSE.
@@ -539,7 +549,7 @@ CONTAINS
                         infi.EQ.cnti%nomore_iter.OR.ropt_mod%convwf).AND.MOD(cdfti,store1%isctore).EQ.0)&
                         THEN
                       CALL mm_dim(mm_go_mm,statusdummy)
-                      CALL zhwwf(2,irec,c0,c2,crge%n,eigv,tau0,velp,taup,iteropt%nfi)
+                      IF (embed_write_files) CALL zhwwf(2,irec,c0,c2,crge%n,eigv,tau0,velp,taup,iteropt%nfi)
                       CALL mm_dim(mm_revert,statusdummy)
                    ENDIF
                    IF (ropt_mod%convwf) THEN
@@ -555,7 +565,7 @@ CONTAINS
                 IF (convtest) THEN
                    IF (.NOT.cntl%bsymm.AND.MOD(cdfti,store1%isctore).NE.0)THEN
                       CALL mm_dim(mm_go_mm,statusdummy)
-                      CALL zhwwf(2,irec,c0,c2,crge%n,eigv,tau0,velp,taup,iteropt%nfi)
+                      IF (embed_write_files) CALL zhwwf(2,irec,c0,c2,crge%n,eigv,tau0,velp,taup,iteropt%nfi)
                       CALL mm_dim(mm_revert,statusdummy)
                    ENDIF
                    ropt_mod%convwf=.TRUE.
@@ -630,7 +640,7 @@ CONTAINS
                 IF (.NOT.cntl%bsymm.AND.&
                      (MOD(infi,store1%istore).EQ.0.OR.infi.EQ.cnti%nomore_iter.OR.ropt_mod%convwf))THEN
                    CALL mm_dim(mm_go_mm,statusdummy)
-                   CALL zhwwf(2,irec,c0,c2,crge%n,eigv,tau0,velp,taup,iteropt%nfi)
+                   IF (embed_write_files) CALL zhwwf(2,irec,c0,c2,crge%n,eigv,tau0,velp,taup,iteropt%nfi)
                    CALL mm_dim(mm_revert,statusdummy)
                 ENDIF
                 IF (ropt_mod%convwf) THEN
@@ -942,7 +952,7 @@ CONTAINS
     IF (cntl%tpspec) THEN
        IF (rout1%rhoout) CALL rhopri(c0,tau0,rhoe,psi(:,1),crge%n,nkpt%nkpnt)
        CALL mm_dim(mm_go_mm,statusdummy)
-       CALL zhwwf(2,irec,c0,c2,crge%n,eigv,tau0,velp,taup,iteropt%nfi)
+       IF (embed_write_files) CALL zhwwf(2,irec,c0,c2,crge%n,eigv,tau0,velp,taup,iteropt%nfi)
     ENDIF
     ! EHR]
     !
@@ -961,7 +971,7 @@ CONTAINS
        CALL prcplngs(cplion,cplcfg,.TRUE.)
        IF (tfor.AND.tcplfd.OR.tcpllr) THEN
           IF (tcplfd) irec(irec_phes) = 1
-          CALL zhwwf(2,irec,c0,cf_4d,crge%n,eigv,tau0,velp,taup,iteropt%nfi)
+          IF (embed_write_files) CALL zhwwf(2,irec,c0,cf_4d,crge%n,eigv,tau0,velp,taup,iteropt%nfi)
        ENDIF
        DEALLOCATE(cplion,STAT=ierr)
        IF(ierr/=0) CALL stopgm(procedureN,'deallocation problem',&
@@ -992,7 +1002,7 @@ CONTAINS
     IF (paral%parent) THEN
        CALL prmem('    RWFOPT')
        IF (.NOT.cntl%bsymm.OR.ropt_mod%convwf) CALL finalp(tau0,fion,tau0,eigv)
-       CALL geofile(tau0,fion,'WRITE')
+       IF (embed_write_files) CALL geofile(tau0,fion,'WRITE')
     ENDIF
     ! Every rank keeps its own slice of c0 for the next warm start. Only
     ! converged orbitals are kept, so a call that stopped or did not converge
