@@ -106,19 +106,20 @@ MODULE rwfopt_utils
 
   PUBLIC :: rwfopt
   PUBLIC :: give_scr_rwfopt
-  ! State for a program that calls rwfopt repeatedly in one process. Both
-  ! flags default to .FALSE., which is the cpmd.x behaviour.
+  ! State for a program that calls rwfopt repeatedly in one process.
+  ! embed_need_forces defaults to .FALSE., embed_warm_orbitals defaults to
+  ! .FALSE., and embed_write_files defaults to .TRUE. Those defaults are
+  ! the cpmd.x behaviour, because cpmd.x never calls the setters.
   !   embed_need_forces: compute the ionic forces and leave fion allocated
   !     after rwfopt returns, for the caller to read. The next rwfopt frees
   !     it; the caller need not.
-  !   embed_warm_orbitals: start the next rwfopt from the orbitals the
-  !     previous one converged to, instead of the generated guess. The first
-  !     SCF iteration builds the density from those orbitals.
+  !   embed_warm_orbitals: start the next rwfopt from orbitals saved after
+  !     convwf was set, instead of the generated guess. The first SCF
+  !     iteration builds the density from those orbitals.
+  !   embed_write_files: write RESTART and GEOMETRY. A caller that keeps
+  !     the orbitals in memory sets it to .FALSE.
   ! embed_reset_warm_orbitals clears embed_warm_orbitals and frees the saved
   ! orbitals; call it after a caught stopgm or when the system changes.
-  !   embed_write_files: write RESTART and GEOMETRY as cpmd.x does. A caller
-  !     that keeps the orbitals in memory sets it to .FALSE. and rwfopt then
-  !     writes neither. Defaults to .TRUE.
   PUBLIC :: embed_set_warm_orbitals
   PUBLIC :: embed_set_need_forces
   PUBLIC :: embed_reset_warm_orbitals
@@ -133,38 +134,59 @@ MODULE rwfopt_utils
 
 CONTAINS
 
+  ! ==================================================================
   SUBROUTINE embed_set_warm_orbitals(flag)
+    ! ==--------------------------------------------------------------==
     LOGICAL, INTENT(IN) :: flag
     embed_warm_orbitals = flag
   END SUBROUTINE embed_set_warm_orbitals
 
+  ! ==================================================================
   SUBROUTINE embed_set_need_forces(flag)
+    ! ==--------------------------------------------------------------==
     LOGICAL, INTENT(IN) :: flag
     embed_need_forces = flag
   END SUBROUTINE embed_set_need_forces
 
+  ! ==================================================================
   SUBROUTINE embed_set_write_files(flag)
+    ! ==--------------------------------------------------------------==
     LOGICAL, INTENT(IN) :: flag
     embed_write_files = flag
   END SUBROUTINE embed_set_write_files
 
+  ! ==================================================================
   SUBROUTINE embed_reset_warm_orbitals()
+    ! ==--------------------------------------------------------------==
+    CHARACTER(*), PARAMETER :: procedureN = 'embed_reset_warm_orbitals'
+    INTEGER :: ierr
+
     embed_warm_orbitals = .FALSE.
     embed_have_orbitals = .FALSE.
-    IF (ALLOCATED(embed_c0_store)) DEALLOCATE(embed_c0_store)
+    IF (ALLOCATED(embed_c0_store)) THEN
+      DEALLOCATE(embed_c0_store,STAT=ierr)
+      IF(ierr/=0) CALL stopgm(procedureN,'deallocation problem',&
+           __LINE__,__FILE__)
+    ENDIF
     embed_store_s1 = 0
     embed_store_s2 = 0
     embed_store_s3 = 0
   END SUBROUTINE embed_reset_warm_orbitals
 
+  ! ==================================================================
   SUBROUTINE embed_save_orbitals(c0)
+    ! ==--------------------------------------------------------------==
     COMPLEX(real_8), INTENT(IN) :: c0(:,:,:)
+    CHARACTER(*), PARAMETER :: procedureN = 'embed_save_orbitals'
     INTEGER :: ierr, s1, s2, s3
     s1 = SIZE(c0, 1); s2 = SIZE(c0, 2); s3 = SIZE(c0, 3)
     IF (ALLOCATED(embed_c0_store)) THEN
-      IF (embed_store_s1 /= s1 .OR. embed_store_s2 /= s2 .OR. embed_store_s3 /= s3) &
-          DEALLOCATE(embed_c0_store)
-    END IF
+      IF (embed_store_s1 /= s1 .OR. embed_store_s2 /= s2 .OR. embed_store_s3 /= s3) THEN
+        DEALLOCATE(embed_c0_store,STAT=ierr)
+        IF(ierr/=0) CALL stopgm(procedureN,'deallocation problem',&
+             __LINE__,__FILE__)
+      ENDIF
+    ENDIF
     IF (.NOT. ALLOCATED(embed_c0_store)) THEN
       ALLOCATE(embed_c0_store(s1, s2, s3), STAT=ierr)
       IF (ierr /= 0) THEN
@@ -179,7 +201,9 @@ CONTAINS
     embed_have_orbitals = .TRUE.
   END SUBROUTINE embed_save_orbitals
 
+  ! ==================================================================
   SUBROUTINE embed_restore_orbitals(c0)
+    ! ==--------------------------------------------------------------==
     COMPLEX(real_8), INTENT(INOUT) :: c0(:,:,:)
     IF (.NOT. embed_have_orbitals .OR. .NOT. ALLOCATED(embed_c0_store)) RETURN
     IF (SIZE(c0, 1) /= embed_store_s1 .OR. SIZE(c0, 2) /= embed_store_s2 .OR. &
